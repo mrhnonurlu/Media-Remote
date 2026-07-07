@@ -1,0 +1,42 @@
+{
+  "name": "media-remote",
+  "version": "1.0.0",
+  "description": "Control media playback on this PC from your phone, running quietly in the background.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.3",
+    "multicast-dns": "^7.2.5"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.mediaremote.app",
+    "productName": "Media Remote",
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.js",
+      "renderer/**/*",
+      "public/**/*",
+      "build/icon.ico"
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
