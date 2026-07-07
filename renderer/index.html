@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Media Remote</title>
+<style>
+  :root {
+    --page-bg: #121114;
+    --panel-1: #2b282e;
+    --panel-2: #201e22;
+    --accent: #e2a855;
+    --text: #f0ece4;
+    --text-muted: #8d8892;
+    --divider: rgba(255,255,255,0.07);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .wrap {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 24px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .led {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px 1px rgba(226,168,85,0.6);
+    animation: breathe 3s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+  .title {
+    font: 600 12px/1 ui-monospace, "Cascadia Code", Menlo, monospace;
+    letter-spacing: 0.18em;
+    color: var(--text-muted);
+  }
+  .subtitle {
+    font: 500 12px/1.4 -apple-system, sans-serif;
+    color: var(--text-muted);
+    margin: 6px 0 22px;
+    text-align: center;
+  }
+
+  .qr-card {
+    background: linear-gradient(165deg, var(--panel-1), var(--panel-2));
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 20px 40px rgba(0,0,0,0.35);
+    margin-bottom: 18px;
+  }
+  .qr-card img {
+    display: block;
+    width: 200px;
+    height: 200px;
+    border-radius: 10px;
+  }
+  .qr-placeholder {
+    width: 200px;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font: 500 12px/1.4 -apple-system, sans-serif;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .url-row {
+    font: 600 13px/1.3 ui-monospace, "Cascadia Code", Menlo, monospace;
+    color: var(--text);
+    background: rgba(0,0,0,0.25);
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    letter-spacing: 0.01em;
+  }
+
+  .url-fallback {
+    font: 500 11px/1.5 -apple-system, sans-serif;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 22px;
+  }
+  .url-fallback span {
+    font: 600 11px/1.5 ui-monospace, "Cascadia Code", Menlo, monospace;
+    color: var(--text);
+  }
+
+  .divider {
+    height: 1px;
+    width: 100%;
+    background: var(--divider);
+    margin-bottom: 18px;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  .toggle-label {
+    font: 500 13px/1.4 -apple-system, sans-serif;
+    color: var(--text);
+  }
+  .toggle-sub {
+    font: 400 11px/1.4 -apple-system, sans-serif;
+    color: var(--text-muted);
+  }
+
+  .switch {
+    position: relative;
+    width: 42px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    border-radius: 24px;
+    transition: background 0.15s ease;
+  }
+  .slider-toggle::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  input:checked + .slider-toggle {
+    background: rgba(226,168,85,0.35);
+  }
+  input:checked + .slider-toggle::before {
+    transform: translateX(18px);
+    background: var(--accent);
+  }
+
+  .hint {
+    margin-top: auto;
+    font: 500 11px/1.5 -apple-system, sans-serif;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .hint b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <span class="led"></span>
+      <span class="title">MEDIA REMOTE</span>
+    </div>
+    <div class="subtitle">Scan with your iPhone camera, then use<br><b>Add to Home Screen</b> for a one-tap icon</div>
+
+    <div class="qr-card">
+      <div class="qr-placeholder" id="qrPlaceholder">Looking for a network connection…</div>
+      <img id="qrImage" style="display:none;" alt="QR code to open the remote" />
+    </div>
+
+    <div class="url-row" id="urlText">—</div>
+    <div class="url-fallback" id="fallbackRow" style="display:none;">
+      Didn't work? Try the IP address instead: <span id="ipText"></span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Start with Windows</div>
+        <div class="toggle-sub">Launch quietly to the tray on login</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="autostartToggle" />
+        <span class="slider-toggle"></span>
+      </label>
+    </div>
+
+    <div class="hint">Running in the background. Use the tray icon<br>near your clock to reopen this window or <b>quit</b>.</div>
+  </div>
+
+<script>
+  async function init() {
+    const info = await window.api.getConnectionInfo();
+    const urlText = document.getElementById('urlText');
+    const qrImage = document.getElementById('qrImage');
+    const qrPlaceholder = document.getElementById('qrPlaceholder');
+    const fallbackRow = document.getElementById('fallbackRow');
+    const ipText = document.getElementById('ipText');
+
+    urlText.textContent = info.stableUrl;
+
+    if (info.ipUrl) {
+      ipText.textContent = info.ipUrl;
+      fallbackRow.style.display = 'block';
+    }
+
+    if (info.qrDataUrl) {
+      qrImage.src = info.qrDataUrl;
+      qrImage.style.display = 'block';
+      qrPlaceholder.style.display = 'none';
+    } else {
+      qrPlaceholder.textContent = 'Connect to Wi-Fi to generate a QR code';
+    }
+
+    const autostartToggle = document.getElementById('autostartToggle');
+    autostartToggle.checked = await window.api.getAutostart();
+    autostartToggle.addEventListener('change', async () => {
+      autostartToggle.checked = await window.api.setAutostart(autostartToggle.checked);
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>
