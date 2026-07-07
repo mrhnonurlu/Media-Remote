@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Remote">
+<meta name="theme-color" content="#121114">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/icon-192.png">
+<title>Media Remote</title>
+<style>
+  :root {
+    --page-bg: #121114;
+    --panel-1: #2b282e;
+    --panel-2: #201e22;
+    --btn-1: #38343c;
+    --btn-2: #2a272d;
+    --btn-1-active: #2c2932;
+    --btn-2-active: #211f24;
+    --accent: #e2a855;
+    --text: #f0ece4;
+    --text-muted: #8d8892;
+    --divider: rgba(255,255,255,0.07);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    overflow: hidden;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .stage {
+    height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .panel {
+    position: relative;
+    width: 100%;
+    max-width: 360px;
+    background:
+      repeating-linear-gradient(115deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+      linear-gradient(165deg, var(--panel-1), var(--panel-2));
+    border-radius: 28px;
+    padding: 22px 20px 26px;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.05) inset,
+      0 30px 60px rgba(0,0,0,0.45);
+  }
+  .panel::-webkit-scrollbar { display: none; }
+
+  .screw {
+    position: absolute;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #4d4854, #1c1a1e);
+  }
+  .screw.tl { top: 14px; left: 16px; }
+  .screw.tr { top: 14px; right: 16px; }
+  .screw.bl { bottom: 14px; left: 16px; }
+  .screw.br { bottom: 14px; right: 16px; }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .led {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px 1px rgba(226,168,85,0.6);
+    animation: breathe 3s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+  .title {
+    font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.18em;
+    color: var(--text-muted);
+  }
+
+  .section-label {
+    font: 600 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.16em;
+    color: var(--text-muted);
+    margin: 0 0 10px 4px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 18px;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3) inset;
+  }
+  .tab-btn {
+    flex: 1;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 8px;
+    padding: 8px 0;
+    font: 700 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+  .tab-btn.active {
+    background: linear-gradient(165deg, var(--btn-1), var(--btn-2));
+    color: var(--accent);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .tab-btn:active { transform: none; }
+
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* Now playing display */
+  .nowplaying {
+    background: linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.14));
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 6px rgba(0,0,0,0.3) inset;
+    min-height: 54px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+  .np-art {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.32);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    overflow: hidden;
+  }
+  .np-art svg { width: 22px; height: 22px; }
+  .np-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .np-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+  .np-track-wrap {
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+  }
+  .np-track {
+    font: 600 14px/1.3 -apple-system, sans-serif;
+    color: var(--text);
+    display: inline-block;
+  }
+  .np-track.marquee {
+    animation: marquee 8s linear infinite;
+    padding-right: 40px;
+  }
+  @keyframes marquee {
+    0%, 15% { transform: translateX(0); }
+    85%, 100% { transform: translateX(calc(-100% + 0px)); }
+  }
+  .np-artist {
+    font: 500 12px/1.3 -apple-system, sans-serif;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .np-empty {
+    font: 500 12px/1.3 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  button {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    color: var(--text);
+    background: linear-gradient(165deg, var(--btn-1), var(--btn-2));
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.06) inset,
+      0 -1px 0 rgba(0,0,0,0.3) inset,
+      0 3px 5px rgba(0,0,0,0.35);
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+  }
+  button:active {
+    transform: translateY(1px) scale(0.98);
+    background: linear-gradient(165deg, var(--btn-1-active), var(--btn-2-active));
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4) inset;
+  }
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .btn-skip { width: 48px; height: 48px; }
+  .btn-skip svg { width: 18px; height: 18px; }
+
+  .btn-play { width: 72px; height: 72px; }
+  .btn-play svg { width: 25px; height: 25px; }
+
+  .btn-seek {
+    width: 40px;
+    height: 48px;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .btn-seek svg { width: 16px; height: 16px; }
+  .btn-seek svg.flip { transform: scaleX(-1); }
+  .seek-label {
+    font: 700 9px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+  }
+
+  .transport { margin-bottom: 22px; }
+  .transport .row { gap: 8px; }
+
+  .divider {
+    height: 1px;
+    background: var(--divider);
+    margin: 0 -4px 20px;
+  }
+
+  /* Volume slider + mute */
+  .volume-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 2px;
+  }
+  .btn-mute {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+  .btn-mute svg { width: 16px; height: 16px; }
+  .btn-mute.is-muted { color: var(--accent); }
+
+  .slider-track {
+    position: relative;
+    flex: 1;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    transition: opacity 0.15s ease;
+  }
+  .slider-bg {
+    position: absolute;
+    left: 0; right: 0;
+    height: 8px;
+    border-radius: 5px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.18));
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3) inset;
+  }
+  .slider-fill {
+    position: absolute;
+    left: 0;
+    height: 8px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #b9822f, var(--accent));
+    width: 0%;
+    transition: width 0.08s linear;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    width: 100%;
+    height: 34px;
+    background: transparent;
+    margin: 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 30%, #fff6e8, var(--accent) 60%, #b9822f 100%);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.15);
+    border: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 30%, #fff6e8, var(--accent) 60%, #b9822f 100%);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.15);
+    border: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-track {
+    background: transparent;
+  }
+
+  .vol-value {
+    font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--text-muted);
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Trackpad tab */
+  .trackpad-area {
+    height: clamp(220px, 36dvh, 340px);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.14));
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 6px rgba(0,0,0,0.3) inset;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    position: relative;
+  }
+  .trackpad-hint {
+    font: 600 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.14em;
+    color: var(--text-muted);
+    opacity: 0.55;
+    pointer-events: none;
+    text-align: center;
+    padding: 0 16px;
+  }
+  .click-row { margin-bottom: 16px; gap: 10px; }
+  .btn-click {
+    flex: 1;
+    height: 44px;
+    border-radius: 12px;
+    font: 700 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.1em;
+  }
+
+  .type-field {
+    width: 100%;
+    height: 44px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+  .type-field.editing { color: var(--accent); }
+
+  .hidden-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: transparent;
+    caret-color: transparent;
+    left: 0;
+    top: 0;
+  }
+
+  .key-row { gap: 8px; margin-bottom: 8px; }
+  .btn-key {
+    flex: 1;
+    height: 40px;
+    border-radius: 10px;
+    font: 700 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .btn-key.wide {
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+
+  .status-row {
+    margin-top: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .status-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #6fcf7a;
+  }
+  .status-text {
+    font: 500 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+  }
+
+  .panel.mode-trackpad .header { margin-bottom: 10px; }
+  .panel.mode-trackpad .tabs { margin-bottom: 12px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .led { animation: none; }
+    button { transition: none; }
+    .np-track.marquee { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="panel">
+    <div class="screw tl"></div>
+    <div class="screw tr"></div>
+    <div class="screw bl"></div>
+    <div class="screw br"></div>
+
+    <div class="header">
+      <span class="led" id="led"></span>
+      <span class="title">MEDIA REMOTE</span>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="media">MEDIA</button>
+      <button class="tab-btn" data-tab="trackpad">TRACKPAD</button>
+    </div>
+
+    <!-- ============ MEDIA TAB ============ -->
+    <div class="tab-pane active" id="tab-media">
+      <div class="nowplaying" id="nowplaying">
+        <div class="np-art" id="npArt">
+          <svg id="npArtPlaceholder" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          <img id="npArtImg" style="display:none;" alt="">
+        </div>
+        <div class="np-text">
+          <div class="np-empty" id="npEmpty">NOTHING PLAYING</div>
+          <div class="np-track-wrap" id="npTrackWrap" style="display:none;">
+            <span class="np-track" id="npTrack"></span>
+          </div>
+          <div class="np-artist" id="npArtist" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="transport">
+        <div class="section-label">TRANSPORT</div>
+        <div class="row">
+          <button class="btn-skip" data-action="previous" aria-label="Previous track">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button class="btn-seek" data-action="seekBackward" aria-label="Back 5 seconds">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            <span class="seek-label">5</span>
+          </button>
+          <button class="btn-play" id="playPauseBtn" aria-label="Play or pause">
+            <svg viewBox="0 0 24 24" fill="currentColor" id="playPauseIcon"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="btn-seek" data-action="seekForward" aria-label="Forward 5 seconds">
+            <svg class="flip" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            <span class="seek-label">5</span>
+          </button>
+          <button class="btn-skip" data-action="next" aria-label="Next track">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="volume">
+        <div class="section-label">VOLUME</div>
+        <div class="volume-row">
+          <button class="btn-mute" id="muteBtn" aria-label="Mute">
+            <svg id="muteIcon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 9v6h4l5 5V4L9 9H5z"/>
+              <path id="muteWave" d="M15.5 8.5a4.5 4.5 0 010 7" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div class="slider-track" id="sliderTrack">
+            <div class="slider-bg"></div>
+            <div class="slider-fill" id="sliderFill"></div>
+            <input type="range" id="volumeSlider" min="0" max="100" step="1" value="50" aria-label="Volume">
+          </div>
+          <span class="vol-value" id="volValue">50</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TRACKPAD TAB ============ -->
+    <div class="tab-pane" id="tab-trackpad">
+      <div class="section-label">TRACKPAD</div>
+      <div class="trackpad-area" id="trackpadArea">
+        <span class="trackpad-hint">DRAG TO MOVE &middot; TAP TO CLICK<br>TWO FINGERS TO SCROLL</span>
+      </div>
+      <div class="row click-row">
+        <button class="btn-click" id="leftClickBtn">LEFT CLICK</button>
+        <button class="btn-click" id="rightClickBtn">RIGHT CLICK</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section-label">KEYBOARD</div>
+      <button class="type-field" id="typeField">
+        <span id="typeFieldLabel">TAP TO TYPE</span>
+      </button>
+      <input type="text" id="hiddenInput" class="hidden-input" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="enter">
+
+      <div class="row key-row">
+        <button class="btn-key" data-key="Escape">ESC</button>
+        <button class="btn-key" data-key="Tab">TAB</button>
+        <button class="btn-key" data-key="ArrowLeft">&larr;</button>
+        <button class="btn-key" data-key="ArrowUp">&uarr;</button>
+        <button class="btn-key" data-key="ArrowDown">&darr;</button>
+        <button class="btn-key" data-key="ArrowRight">&rarr;</button>
+      </div>
+      <div class="row key-row">
+        <button class="btn-key wide" data-key="Backspace">&#9003; BACK</button>
+        <button class="btn-key wide" data-key="Enter">ENTER &#9166;</button>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">READY</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const led = document.getElementById('led');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  let resetTimer;
+
+  function flashLed() {
+    led.style.animation = 'none';
+    led.style.opacity = '1';
+    setTimeout(() => { led.style.animation = 'breathe 3s ease-in-out infinite'; }, 200);
+  }
+
+  function setOffline() {
+    statusDot.style.background = '#d9534f';
+    statusText.textContent = 'OFFLINE';
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(() => {
+      statusDot.style.background = '#6fcf7a';
+      statusText.textContent = 'READY';
+    }, 2500);
+  }
+
+  function setOnline() {
+    statusDot.style.background = '#6fcf7a';
+    statusText.textContent = 'READY';
+  }
+
+  function postJSON(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    }).then((res) => {
+      if (!res.ok) throw new Error('Request failed: ' + res.status);
+      setOnline();
+      return res;
+    }).catch((err) => {
+      setOffline();
+      throw err;
+    });
+  }
+
+  async function send(action) {
+    flashLed();
+    try {
+      await fetch('/control/' + action, { method: 'POST' });
+      setOnline();
+    } catch (err) {
+      setOffline();
+    }
+  }
+
+  document.querySelectorAll('button[data-action]').forEach((btn) => {
+    btn.addEventListener('click', () => send(btn.dataset.action));
+  });
+
+  /* ---- Tabs ---- */
+  const panelEl = document.querySelector('.panel');
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      panelEl.classList.toggle('mode-trackpad', btn.dataset.tab === 'trackpad');
+    });
+  });
+
+  /* ---- Play/Pause icon swap ---- */
+  const playPauseBtn = document.getElementById('playPauseBtn');
+  const playPauseIcon = document.getElementById('playPauseIcon');
+  const PLAY_PATH = 'M8 5v14l11-7z';
+  const PAUSE_PATH = 'M8 5h3v14H8zm5 0h3v14h-3z';
+
+  function setPlayPauseIcon(isPlaying) {
+    playPauseIcon.innerHTML = `<path d="${isPlaying ? PAUSE_PATH : PLAY_PATH}"/>`;
+  }
+
+  playPauseBtn.addEventListener('click', () => send('playPause'));
+
+  /* ---- Now playing + album art ---- */
+  const npEmpty = document.getElementById('npEmpty');
+  const npTrackWrap = document.getElementById('npTrackWrap');
+  const npTrack = document.getElementById('npTrack');
+  const npArtist = document.getElementById('npArtist');
+  const npArtImg = document.getElementById('npArtImg');
+  const npArtPlaceholder = document.getElementById('npArtPlaceholder');
+  let lastArtworkSrc = null;
+
+  function updateNowPlaying(title, artist) {
+    if (!title) {
+      npEmpty.style.display = 'block';
+      npTrackWrap.style.display = 'none';
+      npArtist.style.display = 'none';
+      return;
+    }
+    npEmpty.style.display = 'none';
+    npTrackWrap.style.display = 'block';
+    npArtist.style.display = 'block';
+
+    if (npTrack.textContent !== title) {
+      npTrack.textContent = title;
+      npTrack.classList.remove('marquee');
+      requestAnimationFrame(() => {
+        if (npTrack.scrollWidth > npTrackWrap.clientWidth + 4) {
+          npTrack.classList.add('marquee');
+        }
+      });
+    }
+    npArtist.textContent = artist || '';
+  }
+
+  function updateArtwork(data) {
+    let src = null;
+    if (data.artworkUrl) {
+      src = data.artworkUrl;
+    } else if (data.artworkKey) {
+      src = '/artwork?v=' + encodeURIComponent(data.artworkKey);
+    }
+    if (src === lastArtworkSrc) return;
+    lastArtworkSrc = src;
+    if (src) {
+      npArtImg.src = src;
+      npArtImg.style.display = 'block';
+      npArtPlaceholder.style.display = 'none';
+    } else {
+      npArtImg.style.display = 'none';
+      npArtImg.removeAttribute('src');
+      npArtPlaceholder.style.display = 'block';
+    }
+  }
+
+  /* ---- Volume slider + mute ---- */
+  const slider = document.getElementById('volumeSlider');
+  const sliderFill = document.getElementById('sliderFill');
+  const sliderTrack = document.getElementById('sliderTrack');
+  const volValue = document.getElementById('volValue');
+  const muteBtn = document.getElementById('muteBtn');
+  const muteWave = document.getElementById('muteWave');
+  let userIsDragging = false;
+  let volumeSendTimer = null;
+
+  const WAVE_PATH = 'M15.5 8.5a4.5 4.5 0 010 7';
+  const MUTE_X_PATH = 'M16 9l5 6M21 9l-5 6';
+
+  function paintSlider(value) {
+    sliderFill.style.width = value + '%';
+    volValue.textContent = value;
+  }
+
+  function setMuteVisual(muted) {
+    muteWave.setAttribute('d', muted ? MUTE_X_PATH : WAVE_PATH);
+    muteBtn.classList.toggle('is-muted', !!muted);
+    sliderTrack.style.opacity = muted ? '0.45' : '1';
+  }
+
+  paintSlider(slider.value);
+
+  slider.addEventListener('input', () => {
+    userIsDragging = true;
+    paintSlider(slider.value);
+    clearTimeout(volumeSendTimer);
+    volumeSendTimer = setTimeout(() => {
+      sendVolume(parseInt(slider.value, 10));
+    }, 60);
+  });
+
+  slider.addEventListener('change', () => {
+    sendVolume(parseInt(slider.value, 10));
+    setTimeout(() => { userIsDragging = false; }, 400);
+  });
+
+  async function sendVolume(level) {
+    try {
+      const res = await fetch('/volume/' + level, { method: 'POST' });
+      if (!res.ok) throw new Error('Request failed: ' + res.status);
+      setOnline();
+    } catch (err) {
+      setOffline();
+    }
+  }
+
+  muteBtn.addEventListener('click', () => send('mute'));
+
+  /* ---- Poll status: now playing + artwork + volume + mute + play state ---- */
+  async function pollStatus() {
+    try {
+      const res = await fetch('/status');
+      if (!res.ok) throw new Error('Status request failed');
+      const data = await res.json();
+      setOnline();
+
+      updateNowPlaying(data.title, data.artist);
+      updateArtwork(data);
+      setPlayPauseIcon(!!data.isPlaying);
+      setMuteVisual(!!data.muted);
+
+      if (!userIsDragging && typeof data.volume === 'number' && !Number.isNaN(data.volume)) {
+        slider.value = data.volume;
+        paintSlider(data.volume);
+      }
+    } catch (err) {
+      setOffline();
+    }
+  }
+
+  pollStatus();
+  setInterval(pollStatus, 2000);
+
+  /* ================= TRACKPAD ================= */
+  const trackpadArea = document.getElementById('trackpadArea');
+  const SENSITIVITY = 2.2;
+  const SCROLL_SENSITIVITY = 3.5;
+
+  let pendingDx = 0, pendingDy = 0, moveScheduled = false;
+  function queueMove(dx, dy) {
+    pendingDx += dx; pendingDy += dy;
+    if (!moveScheduled) {
+      moveScheduled = true;
+      setTimeout(flushMove, 16);
+    }
+  }
+  function flushMove() {
+    moveScheduled = false;
+    if (!pendingDx && !pendingDy) return;
+    const dx = pendingDx, dy = pendingDy;
+    pendingDx = 0; pendingDy = 0;
+    postJSON('/mouse/move', { dx, dy }).catch(() => {});
+  }
+
+  let pendingScroll = 0, scrollScheduled = false;
+  function queueScroll(delta) {
+    pendingScroll += delta;
+    if (!scrollScheduled) {
+      scrollScheduled = true;
+      setTimeout(flushScroll, 20);
+    }
+  }
+  function flushScroll() {
+    scrollScheduled = false;
+    if (!pendingScroll) return;
+    const delta = pendingScroll;
+    pendingScroll = 0;
+    postJSON('/mouse/scroll', { delta }).catch(() => {});
+  }
+
+  const touchState = { active: false, moved: false, startTime: 0, lastX: 0, lastY: 0, twoFinger: false, lastTwoY: 0 };
+
+  trackpadArea.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (e.touches.length >= 2) {
+      touchState.twoFinger = true;
+      touchState.lastTwoY = e.touches[0].clientY;
+    } else {
+      touchState.twoFinger = false;
+      touchState.active = true;
+      touchState.moved = false;
+      touchState.startTime = Date.now();
+      touchState.lastX = e.touches[0].clientX;
+      touchState.lastY = e.touches[0].clientY;
+    }
+  }, { passive: false });
+
+  trackpadArea.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (touchState.twoFinger && e.touches.length >= 2) {
+      const y = e.touches[0].clientY;
+      const dy = y - touchState.lastTwoY;
+      touchState.lastTwoY = y;
+      queueScroll(dy * SCROLL_SENSITIVITY);
+      return;
+    }
+    if (!touchState.active || e.touches.length === 0) return;
+    const t = e.touches[0];
+    const dx = t.clientX - touchState.lastX;
+    const dy = t.clientY - touchState.lastY;
+    touchState.lastX = t.clientX;
+    touchState.lastY = t.clientY;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) touchState.moved = true;
+    queueMove(dx * SENSITIVITY, dy * SENSITIVITY);
+  }, { passive: false });
+
+  trackpadArea.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (touchState.active && !touchState.moved && Date.now() - touchState.startTime < 300) {
+      postJSON('/mouse/click', { button: 'left' }).catch(() => {});
+      flashLed();
+    }
+    touchState.active = false;
+    touchState.twoFinger = false;
+  }, { passive: false });
+
+  document.getElementById('leftClickBtn').addEventListener('click', () => {
+    postJSON('/mouse/click', { button: 'left' }).catch(() => {});
+    flashLed();
+  });
+  document.getElementById('rightClickBtn').addEventListener('click', () => {
+    postJSON('/mouse/click', { button: 'right' }).catch(() => {});
+    flashLed();
+  });
+
+  /* ---- Keyboard ---- */
+  const typeField = document.getElementById('typeField');
+  const typeFieldLabel = document.getElementById('typeFieldLabel');
+  const hiddenInput = document.getElementById('hiddenInput');
+  let previousValue = '';
+
+  typeField.addEventListener('click', () => {
+    if (document.activeElement === hiddenInput) {
+      hiddenInput.blur();
+      return;
+    }
+    hiddenInput.value = '';
+    previousValue = '';
+    hiddenInput.focus();
+  });
+
+  hiddenInput.addEventListener('focus', () => {
+    typeField.classList.add('editing');
+    typeFieldLabel.textContent = 'TYPING… TAP TO DISMISS';
+  });
+  hiddenInput.addEventListener('blur', () => {
+    typeField.classList.remove('editing');
+    typeFieldLabel.textContent = 'TAP TO TYPE';
+  });
+
+  hiddenInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      postJSON('/keyboard/key', { key: 'Enter' }).catch(() => {});
+    }
+  });
+
+  hiddenInput.addEventListener('input', () => {
+    const value = hiddenInput.value;
+    if (value.length > previousValue.length && value.startsWith(previousValue)) {
+      const added = value.slice(previousValue.length);
+      postJSON('/keyboard/type', { text: added }).catch(() => {});
+    } else if (value.length < previousValue.length) {
+      const removed = previousValue.length - value.length;
+      for (let i = 0; i < removed; i++) {
+        postJSON('/keyboard/key', { key: 'Backspace' }).catch(() => {});
+      }
+    }
+    previousValue = value;
+  });
+
+  document.querySelectorAll('.btn-key').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      postJSON('/keyboard/key', { key: btn.dataset.key }).catch(() => {});
+      flashLed();
+    });
+  });
+
+  /* ---- PWA service worker ---- */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
